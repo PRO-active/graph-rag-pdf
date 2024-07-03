@@ -1,37 +1,9 @@
 #まだ未完成
-import os
 import streamlit as st
-from neo4j import GraphDatabase
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.output_parsers import StrOutputParser
-from langchain_community.graphs import Neo4jGraph
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import TokenTextSplitter
-from langchain_openai import ChatOpenAI
-from langchain_experimental.graph_transformers import LLMGraphTransformer
-from langchain_community.vectorstores import Neo4jVector
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores.neo4j_vector import remove_lucene_chars
+from neo4j_utils import initialize_graph, connect_to_neo4j
+from document_processing import load_documents, create_graph_documents
+from rag import handle_question_answering, generate_full_text_query, structured_retriever
 
-# Load and process documents
-def load_documents(file_path):
-    raw_documents = TextLoader(file_path).load()
-    text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=125)
-    return text_splitter.split_documents(raw_documents)
-
-# Create graph documents
-def create_graph_documents(documents, llm):
-    llm_transformer = LLMGraphTransformer(llm=llm)
-    return llm_transformer.convert_to_graph_documents(documents)
-
-# Initialize Neo4j graph and add documents
-def initialize_graph(graph_documents, uri, user, password):
-    graph = Neo4jGraph(uri=uri, user=user, password=password)
-    graph.add_graph_documents(graph_documents, baseEntityLabel=True, include_source=True)
-    return graph
-
-# Define Streamlit app
 def main():
     st.title("PDF to Knowledge Graph with Graph RAG")
 
@@ -64,7 +36,7 @@ def main():
     else:
         try:
             # Use existing graph documents
-            graph = Neo4jGraph(uri=NEO4J_URI, user=NEO4J_USERNAME, password=NEO4J_PASSWORD)
+            graph = connect_to_neo4j(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
             st.success("Using existing graph documents.")
         except Exception as e:
             st.error(f"Error using existing graph documents: {e}")
@@ -86,66 +58,8 @@ def main():
     # Handle question answering
     question = st.text_input("Ask a question about the document")
     if st.button("Get Answer"):
-        # Generate full text query
-        def generate_full_text_query(input: str) -> str:
-            full_text_query = ""
-            words = [el for el in remove_lucene_chars(input).split() if el]
-            for word in words[:-1]:
-                full_text_query += f" {word}~2 AND"
-            full_text_query += f" {words[-1]}~2"
-            return full_text_query.strip()
-
-        # Extract entities from text
-        class Entities(BaseModel):
-            names: List[str] = Field(..., description="Entities in the text")
-
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "Extract organization and person entities from the text."),
-            ("human", "Extract entities from: {question}"),
-        ])
-        entity_chain = prompt | llm.with_structured_output(Entities)
-
-        def structured_retriever(question: str) -> str:
-            entities = entity_chain.invoke({"question": question})
-            result = ""
-            for entity in entities.names:
-                response = graph.query(
-                    """CALL db.index.fulltext.queryNodes('entity', $query, {limit:20})
-                    YIELD node,score
-                    CALL {
-                      WITH node
-                      MATCH (node)-[r:MENTIONS]->(neighbor)
-                      RETURN node.id + ' - ' + type(r) + ' -> ' + neighbor.id AS output
-                      UNION ALL
-                      WITH node
-                      MATCH (node)<-[r:MENTIONS]-(neighbor)
-                      RETURN neighbor.id + ' - ' + type(r) + ' -> ' + node.id AS output
-                    }
-                    RETURN output LIMIT 1000
-                    """,
-                    {"query": generate_full_text_query(entity)},
-                )
-                result += "\n".join([el['output'] for el in response])
-            return result
-
-        # Retrieve data
-        structured_data = structured_retriever(question)
-        vector_index = Neo4jVector.from_existing_graph(
-            OpenAIEmbeddings(),
-            search_type="hybrid",
-            node_label="Document",
-            text_node_properties=["text"],
-            embedding_node_property="embedding"
-        )
-        unstructured_data = [el.page_content for el in vector_index.similarity_search(question)]
-        final_data = f"""Structured data:
-        {structured_data}
-        Unstructured data:
-        {"#Document ". join(unstructured_data)}
-        """
-        st.write(final_data)
+        handle_question_answering(question, graph)
 
 if __name__ == "__main__":
     main()
-
-
+  

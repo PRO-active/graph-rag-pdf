@@ -62,19 +62,26 @@ def main():
             st.success("Graph initialized and documents added.")
 
     else:
-        # Use existing graph documents
-        graph = Neo4jGraph(uri=NEO4J_URI, user=NEO4J_USERNAME, password=NEO4J_PASSWORD)
-        st.success("Using existing graph documents.")
+        try:
+            # Use existing graph documents
+            graph = Neo4jGraph(uri=NEO4J_URI, user=NEO4J_USERNAME, password=NEO4J_PASSWORD)
+            st.success("Using existing graph documents.")
+        except Exception as e:
+            st.error(f"Error using existing graph documents: {e}")
+            return
 
     # Display graph
     cypher_query = st.text_input("Enter Cypher query", "MATCH (s)-[r:MENTIONS]->(t) RETURN s,r,t LIMIT 50")
     if st.button("Show Graph"):
-        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
-        session = driver.session()
-        result = session.run(cypher_query).graph()
-        session.close()
-        # Use an appropriate library to visualize the graph in Streamlit
-        st.graphviz_chart(result)
+        try:
+            driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+            session = driver.session()
+            result = session.run(cypher_query).graph()
+            session.close()
+            # Use an appropriate library to visualize the graph in Streamlit
+            st.graphviz_chart(result)
+        except Exception as e:
+            st.error(f"Error displaying graph: {e}")
 
     # Handle question answering
     question = st.text_input("Ask a question about the document")
@@ -140,4 +147,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

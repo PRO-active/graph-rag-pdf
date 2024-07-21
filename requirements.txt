@@ -1,0 +1,6 @@
+streamlit
+neo4j
+langchain
+yfiles_jupyter_graphs
+openai
+pydantic

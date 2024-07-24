@@ -1,6 +1,7 @@
 streamlit
 neo4j
 langchain
+langchain_community
 yfiles_jupyter_graphs
 openai
 pydantic

@@ -1,11 +1,14 @@
-import streamlit as st
-from langchain_core.prompts import ChatPromptTemplate
+from typing import List
 from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import Neo4jVector
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores.neo4j_vector import remove_lucene_chars
+import streamlit as st
+
+class Entities(BaseModel):
+    names: List[str] = Field(..., description="Entities in the text")
 
 def generate_full_text_query(input: str) -> str:
     full_text_query = ""
@@ -14,9 +17,6 @@ def generate_full_text_query(input: str) -> str:
         full_text_query += f" {word}~2 AND"
     full_text_query += f" {words[-1]}~2"
     return full_text_query.strip()
-
-class Entities(BaseModel):
-    names: List[str] = Field(..., description="Entities in the text")
 
 def structured_retriever(question: str, graph) -> str:
     prompt = ChatPromptTemplate.from_messages([
@@ -61,6 +61,6 @@ def handle_question_answering(question, graph):
     final_data = f"""Structured data:
     {structured_data}
     Unstructured data:
-    {"#Document ". join(unstructured_data)}
+    {"#Document ".join(unstructured_data)}
     """
     st.write(final_data)

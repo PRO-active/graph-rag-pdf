@@ -3,6 +3,7 @@ import streamlit as st
 from neo4j_utils import initialize_graph, connect_to_neo4j
 from document_processing import load_documents, create_graph_documents
 from rag import handle_question_answering
+from langchain.chat_models import ChatOpenAI 
 
 def main():
     st.title("PDF to Knowledge Graph with Graph RAG")

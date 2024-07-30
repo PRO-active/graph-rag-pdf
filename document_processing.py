@@ -1,12 +1,13 @@
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import TokenTextSplitter
-from langchain_experimental.graph_transformers import LLMGraphTransformer
-from langchain_openai import ChatOpenAI
+from langchain.document_loaders import PyPDFLoader
+from typing import List
 
-def load_documents(file_path):
-    raw_documents = TextLoader(file_path).load()
-    text_splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=125)
-    return text_splitter.split_documents(raw_documents)
+def load_documents(file_path: str) -> List[str]:
+    """Load documents from a PDF file."""
+    try:
+        pdf_loader = PyPDFLoader(file_path)
+        return pdf_loader.load()
+    except Exception as e:
+        raise RuntimeError(f"Error loading {file_path}") from e
 
 def create_graph_documents(documents, llm):
     llm_transformer = LLMGraphTransformer(llm=llm)

@@ -7,3 +7,4 @@ openai
 pydantic
 langchain-openai
 langchain-experimental
+pypdf

@@ -1,12 +1,16 @@
 #まだ未完成
+import os
 import streamlit as st
 from neo4j_utils import initialize_graph, connect_to_neo4j
 from document_processing import load_documents, create_graph_documents
 from rag import handle_question_answering
-from langchain.chat_models import ChatOpenAI 
+from langchain.chat_models import ChatOpenAI
 
 def main():
     st.title("PDF to Knowledge Graph with Graph RAG")
+
+    # OpenAI API key input
+    OPENAI_API_KEY = st.text_input("Enter OpenAI API Key", type="password")
 
     # Neo4j connection parameters input
     NEO4J_URI = st.text_input("Enter Neo4j URI", "bolt://localhost:7687")
@@ -41,7 +45,7 @@ def main():
                 # Process PDF and create graph documents
                 try:
                     documents = load_documents(pdf_path)  # Use the saved file path
-                    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125")
+                    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125", openai_api_key=OPENAI_API_KEY)
                     graph_documents = create_graph_documents(documents, llm)
                     
                     # Initialize graph

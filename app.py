@@ -5,6 +5,7 @@ from neo4j_utils import initialize_graph, connect_to_neo4j
 from document_processing import load_documents, create_graph_documents
 from rag import handle_question_answering
 from langchain.chat_models import ChatOpenAI
+from langchain_experimental.graph_transformers import LLMGraphTransformer
 
 def main():
     st.title("PDF to Knowledge Graph with Graph RAG")
@@ -46,7 +47,8 @@ def main():
                 try:
                     documents = load_documents(pdf_path)  # Use the saved file path
                     llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125", openai_api_key=OPENAI_API_KEY)
-                    graph_documents = create_graph_documents(documents, llm)
+                    llm_transformer = LLMGraphTransformer(llm=llm)  # LLMGraphTransformerを使用
+                    graph_documents = create_graph_documents(documents, llm_transformer)
                     
                     # Initialize graph
                     graph = initialize_graph(graph_documents, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)

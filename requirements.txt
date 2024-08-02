@@ -8,3 +8,4 @@ pydantic
 langchain-openai
 langchain-experimental
 pypdf
+json-repair

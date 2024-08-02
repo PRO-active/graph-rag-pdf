@@ -6,29 +6,42 @@ from document_processing import load_documents, create_graph_documents
 from rag import handle_question_answering
 from langchain.chat_models import ChatOpenAI
 from langchain_experimental.graph_transformers import LLMGraphTransformer
+from neo4j import GraphDatabase
 
 def main():
     st.title("PDF to Knowledge Graph with Graph RAG")
 
+    # Initialize session state
+    if 'openai_api_key' not in st.session_state:
+        st.session_state.openai_api_key = ""
+    if 'neo4j_uri' not in st.session_state:
+        st.session_state.neo4j_uri = "bolt://localhost:7687"
+    if 'neo4j_username' not in st.session_state:
+        st.session_state.neo4j_username = "neo4j"
+    if 'neo4j_password' not in st.session_state:
+        st.session_state.neo4j_password = ""
+    if 'neo4j_connected' not in st.session_state:
+        st.session_state.neo4j_connected = False
+    if 'graph' not in st.session_state:
+        st.session_state.graph = None
+
     # OpenAI API key input
-    OPENAI_API_KEY = st.text_input("Enter OpenAI API Key", type="password")
+    st.session_state.openai_api_key = st.text_input("Enter OpenAI API Key", value=st.session_state.openai_api_key, type="password")
 
     # Neo4j connection parameters input
-    NEO4J_URI = st.text_input("Enter Neo4j URI", "bolt://localhost:7687")
-    NEO4J_USERNAME = st.text_input("Enter Neo4j Username", "neo4j")
-    NEO4J_PASSWORD = st.text_input("Enter Neo4j Password", type="password")
-
-    if "neo4j_connected" not in st.session_state:
-        st.session_state.neo4j_connected = False
+    st.session_state.neo4j_uri = st.text_input("Enter Neo4j URI", value=st.session_state.neo4j_uri)
+    st.session_state.neo4j_username = st.text_input("Enter Neo4j Username", value=st.session_state.neo4j_username)
+    st.session_state.neo4j_password = st.text_input("Enter Neo4j Password", value=st.session_state.neo4j_password, type="password")
 
     if st.button("Connect to Neo4j"):
         try:
             # Attempt to connect to Neo4j only when the button is clicked
-            graph = connect_to_neo4j(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
+            graph = connect_to_neo4j(st.session_state.neo4j_uri, st.session_state.neo4j_username, st.session_state.neo4j_password)
             st.session_state.neo4j_connected = True
             st.session_state.graph = graph
             st.success("Connected to Neo4j")
         except Exception as e:
+            st.session_state.neo4j_connected = False
             st.error(f"Error connecting to Neo4j: {e}")
 
     if st.session_state.neo4j_connected:
@@ -46,12 +59,12 @@ def main():
                 # Process PDF and create graph documents
                 try:
                     documents = load_documents(pdf_path)  # Use the saved file path
-                    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125", openai_api_key=OPENAI_API_KEY)
+                    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125", openai_api_key=st.session_state.openai_api_key)
                     llm_transformer = LLMGraphTransformer(llm=llm)  # LLMGraphTransformerを使用
                     graph_documents = create_graph_documents(documents, llm_transformer)
                     
                     # Initialize graph
-                    graph = initialize_graph(graph_documents, NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD)
+                    graph = initialize_graph(graph_documents, st.session_state.neo4j_uri, st.session_state.neo4j_username, st.session_state.neo4j_password)
                     st.success("Graph initialized and documents added.")
                 except Exception as e:
                     st.error(f"Error processing PDF: {e}")
@@ -63,7 +76,7 @@ def main():
         cypher_query = st.text_input("Enter Cypher query", "MATCH (s)-[r:MENTIONS]->(t) RETURN s,r,t LIMIT 50")
         if st.button("Show Graph"):
             try:
-                driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+                driver = GraphDatabase.driver(st.session_state.neo4j_uri, auth=(st.session_state.neo4j_username, st.session_state.neo4j_password))
                 session = driver.session()
                 result = session.run(cypher_query).graph()
                 session.close()

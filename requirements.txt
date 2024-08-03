@@ -7,5 +7,6 @@ openai
 pydantic
 langchain-openai
 langchain-experimental
+langchain-core
 pypdf
 json-repair

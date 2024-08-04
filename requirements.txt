@@ -3,6 +3,7 @@ neo4j
 langchain
 langchain-community
 yfiles_jupyter_graphs
+pyvis
 openai
 pydantic
 langchain-openai

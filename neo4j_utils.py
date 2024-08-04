@@ -1,9 +1,18 @@
-from langchain_community.graphs import Neo4jGraph
+from neo4j import GraphDatabase
 
-def initialize_graph(graph_documents, url, user, password):
-    graph = Neo4jGraph(url=url, username=user, password=password)
-    graph.add_graph_documents(graph_documents, baseEntityLabel=True, include_source=True)
-    return graph
+def initialize_graph(graph_documents, uri, username, password):
+    driver = GraphDatabase.driver(uri, auth=(username, password))
+    session = driver.session()
+    # Add the documents to the graph
+    for doc in graph_documents:
+        session.write_transaction(lambda tx: tx.run("CREATE (n:Document {content: $content})", content=doc))
+    session.close()
 
-def connect_to_neo4j(url, user, password):
-    return Neo4jGraph(url=url, username=user, password=password)
+def connect_to_neo4j(uri, username, password):
+    driver = GraphDatabase.driver(uri, auth=(username, password))
+    session = driver.session()
+    session.close()
+    return driver
+
+def run_cypher_query(session, query):
+    return session.run(query).graph()

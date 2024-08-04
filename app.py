@@ -1,12 +1,14 @@
 #まだ未完成
 import os
 import streamlit as st
-from neo4j_utils import initialize_graph, connect_to_neo4j
+from neo4j_utils import initialize_graph, connect_to_neo4j, run_cypher_query
 from document_processing import load_documents, create_graph_documents
 from rag import handle_question_answering
 from langchain.chat_models import ChatOpenAI
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from neo4j import GraphDatabase
+from pyvis.network import Network
+import streamlit.components.v1 as components
 
 def main():
     st.title("PDF to Knowledge Graph with Graph RAG")
@@ -78,10 +80,21 @@ def main():
             try:
                 driver = GraphDatabase.driver(st.session_state.neo4j_uri, auth=(st.session_state.neo4j_username, st.session_state.neo4j_password))
                 session = driver.session()
-                result = session.run(cypher_query).graph()
+                result = run_cypher_query(session, cypher_query)
                 session.close()
-                # Use an appropriate library to visualize the graph in Streamlit
-                st.graphviz_chart(result)
+                
+                net = Network(height="750px", width="100%", notebook=True)
+                for node in result.nodes:
+                    net.add_node(node.id, label=node["name"] if "name" in node else node.id)
+                for relationship in result.relationships:
+                    net.add_edge(relationship.start_node.id, relationship.end_node.id, label=relationship.type)
+                
+                net.show("graph.html")
+                
+                # Load the HTML file and display it in Streamlit
+                with open("graph.html", "r") as f:
+                    html_content = f.read()
+                components.html(html_content, height=750)
             except Exception as e:
                 st.error(f"Error displaying graph: {e}")
 

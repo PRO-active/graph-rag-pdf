@@ -3,7 +3,6 @@ from neo4j import GraphDatabase
 def initialize_graph(graph_documents, uri, username, password):
     driver = GraphDatabase.driver(uri, auth=(username, password))
     session = driver.session()
-    # Add the documents to the graph
     for doc in graph_documents:
         session.write_transaction(lambda tx: tx.run("CREATE (n:Document {content: $content})", content=doc))
     session.close()

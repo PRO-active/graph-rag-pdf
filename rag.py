@@ -3,9 +3,35 @@ from typing import List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from neo4j import GraphDatabase
+from py2neo import Graph as Py2NeoGraph
+import graphviz
+
 
 class Entities(BaseModel):
     names: List[str] = Field(..., description="Entities in the text")
+
+def visualize_graph(graph):
+    dot = graphviz.Digraph()
+
+    for node in graph.nodes:
+        dot.node(str(node.identity), str(node["name"]))  # 各ノードを表示
+
+    for rel in graph.relationships:
+        dot.edge(str(rel.start_node.identity), str(rel.end_node.identity), label=rel.type)  # 関連を表示
+
+    return dot
+
+def show_graph(graph_uri, graph_username, graph_password):
+    try:
+        graph = Py2NeoGraph(graph_uri, auth=(graph_username, graph_password))
+
+        query = "MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 10"
+        result = graph.run(query).graph()
+
+        dot = visualize_graph(result)
+        return dot.source
+    except Exception as e:
+        return f"Error displaying graph: {str(e)}"
 
 def extract_entities_from_question(question, llm):
     entity_chain = ChatPromptTemplate.from_messages(

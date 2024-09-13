@@ -1,14 +1,25 @@
 #まだ未完成
 import os
 import streamlit as st
-from neo4j_utils import initialize_graph, connect_to_neo4j, run_cypher_query
+from neo4j_utils import initialize_graph, connect_to_neo4j
 from document_processing import load_documents, create_graph_documents
-from rag import handle_question_answering
+from rag import handle_question_answering, generate_full_text_query, structured_retriever, show_graph
 from langchain.chat_models import ChatOpenAI
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from neo4j import GraphDatabase
-from pyvis.network import Network
-import streamlit.components.v1 as components
+import graphviz
+
+def neo4j_graph_to_graphviz(neo4j_graph):
+    """Convert a Neo4j graph object to Graphviz format for visualization."""
+    dot = graphviz.Digraph()
+
+    for node in neo4j_graph.nodes:
+        dot.node(str(node.id), label=node.get('name', 'Node'))
+
+    for relationship in neo4j_graph.relationships:
+        dot.edge(str(relationship.start_node.id), str(relationship.end_node.id), label=relationship.type)
+
+    return dot
 
 def main():
     st.title("PDF to Knowledge Graph with Graph RAG")
@@ -27,10 +38,8 @@ def main():
     if 'graph' not in st.session_state:
         st.session_state.graph = None
 
-    # OpenAI API key input
     st.session_state.openai_api_key = st.text_input("Enter OpenAI API Key", value=st.session_state.openai_api_key, type="password")
 
-    # Neo4j connection parameters input
     st.session_state.neo4j_uri = st.text_input("Enter Neo4j URI", value=st.session_state.neo4j_uri)
     st.session_state.neo4j_username = st.text_input("Enter Neo4j Username", value=st.session_state.neo4j_username)
     st.session_state.neo4j_password = st.text_input("Enter Neo4j Password", value=st.session_state.neo4j_password, type="password")
@@ -80,28 +89,23 @@ def main():
             try:
                 driver = GraphDatabase.driver(st.session_state.neo4j_uri, auth=(st.session_state.neo4j_username, st.session_state.neo4j_password))
                 session = driver.session()
-                result = run_cypher_query(session, cypher_query)
+                result = session.run(cypher_query).graph()
                 session.close()
-                
-                net = Network(height="750px", width="100%", notebook=True)
-                for node in result.nodes:
-                    net.add_node(node.id, label=node["name"] if "name" in node else node.id)
-                for relationship in result.relationships:
-                    net.add_edge(relationship.start_node.id, relationship.end_node.id, label=relationship.type)
-                
-                net.show("graph.html")
-                
-                # Load the HTML file and display it in Streamlit
-                with open("graph.html", "r") as f:
-                    html_content = f.read()
-                components.html(html_content, height=750)
+
+                # Convert Neo4j graph to Graphviz format
+                dot = neo4j_graph_to_graphviz(result)
+
+                # Display the Graphviz chart
+                st.graphviz_chart(dot.source)  # `.source`でGraphvizソースコードを取得して表示
             except Exception as e:
                 st.error(f"Error displaying graph: {e}")
 
         # Handle question answering
         question = st.text_input("Ask a question about the document")
         if st.button("Get Answer"):
-            handle_question_answering(question, st.session_state.graph)
+            llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125", openai_api_key=st.session_state.openai_api_key)
+            answer = handle_question_answering(question, st.session_state.neo4j_uri, st.session_state.neo4j_username, st.session_state.neo4j_password, llm)
+            st.write(answer)
 
 if __name__ == "__main__":
     main()

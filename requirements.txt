@@ -11,3 +11,5 @@ langchain-experimental
 langchain-core
 pypdf
 json-repair
+py2neo
+graphvizgraphviz

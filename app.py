@@ -7,19 +7,6 @@ from rag import handle_question_answering, generate_full_text_query, structured_
 from langchain.chat_models import ChatOpenAI
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from neo4j import GraphDatabase
-import graphviz
-
-def neo4j_graph_to_graphviz(neo4j_graph):
-    """Convert a Neo4j graph object to Graphviz format for visualization."""
-    dot = graphviz.Digraph()
-
-    for node in neo4j_graph.nodes:
-        dot.node(str(node.id), label=node.get('name', 'Node'))
-
-    for relationship in neo4j_graph.relationships:
-        dot.edge(str(relationship.start_node.id), str(relationship.end_node.id), label=relationship.type)
-
-    return dot
 
 def main():
     st.title("PDF to Knowledge Graph with Graph RAG")
@@ -38,8 +25,10 @@ def main():
     if 'graph' not in st.session_state:
         st.session_state.graph = None
 
+    # OpenAI API key input
     st.session_state.openai_api_key = st.text_input("Enter OpenAI API Key", value=st.session_state.openai_api_key, type="password")
 
+    # Neo4j connection parameters input
     st.session_state.neo4j_uri = st.text_input("Enter Neo4j URI", value=st.session_state.neo4j_uri)
     st.session_state.neo4j_username = st.text_input("Enter Neo4j Username", value=st.session_state.neo4j_username)
     st.session_state.neo4j_password = st.text_input("Enter Neo4j Password", value=st.session_state.neo4j_password, type="password")
@@ -70,7 +59,7 @@ def main():
                 # Process PDF and create graph documents
                 try:
                     documents = load_documents(pdf_path)  # Use the saved file path
-                    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125", openai_api_key=st.session_state.openai_api_key)
+                    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo", openai_api_key=st.session_state.openai_api_key)
                     llm_transformer = LLMGraphTransformer(llm=llm)  # LLMGraphTransformerを使用
                     graph_documents = create_graph_documents(documents, llm_transformer)
                     
@@ -91,19 +80,13 @@ def main():
                 session = driver.session()
                 result = session.run(cypher_query).graph()
                 session.close()
-
-                # Convert Neo4j graph to Graphviz format
-                dot = neo4j_graph_to_graphviz(result)
-
-                # Display the Graphviz chart
-                st.graphviz_chart(dot.source)  # `.source`でGraphvizソースコードを取得して表示
+                st.graphviz_chart(result)
             except Exception as e:
                 st.error(f"Error displaying graph: {e}")
 
-        # Handle question answering
         question = st.text_input("Ask a question about the document")
         if st.button("Get Answer"):
-            llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo-0125", openai_api_key=st.session_state.openai_api_key)
+            llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo", openai_api_key=st.session_state.openai_api_key)
             answer = handle_question_answering(question, st.session_state.neo4j_uri, st.session_state.neo4j_username, st.session_state.neo4j_password, llm)
             st.write(answer)
 

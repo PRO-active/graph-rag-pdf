@@ -6,7 +6,6 @@ from neo4j import GraphDatabase
 from py2neo import Graph as Py2NeoGraph
 import graphviz
 
-
 class Entities(BaseModel):
     names: List[str] = Field(..., description="Entities in the text")
 
@@ -64,4 +63,10 @@ def handle_question_answering(question, graph_uri, graph_username, graph_passwor
     else:
         return "No entities found in the question."
 
-
+def generate_full_text_query(input: str) -> str:
+    full_text_query = ""
+    words = [el for el in input.split() if el]
+    for word in words[:-1]:
+        full_text_query += f" {word}~2 AND"
+    full_text_query += f" {words[-1]}~2"
+    return full_text_query.strip()
